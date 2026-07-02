@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: [self-hosted, ARM64]
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest pytest-cov
+
+      - name: Run tests
+        run: python -m pytest tests/ -v --cov=btkeyboard --cov-report=term-missing
+
+      - name: Verify Boot Protocol invariant (no Report ID)
+        run: |
+          python -c "
+          import sys; sys.path.insert(0, 'src')
+          from btkeyboard.hid_descriptor import HID_REPORT_MAP
+          assert 0x85 not in HID_REPORT_MAP, 'FATAL: Report ID tag found in descriptor!'
+          assert len(HID_REPORT_MAP) > 30, 'HID descriptor too short'
+          print('✅ Boot Protocol invariant verified: no Report ID tag')
+          "
+
+      - name: Verify all printable ASCII is mappable
+        run: |
+          python -c "
+          import sys; sys.path.insert(0, 'src')
+          from btkeyboard.keymap import KEYMAP, SHIFT_KEYMAP
+          unmapped = [chr(c) for c in range(32, 127) if chr(c) not in KEYMAP and chr(c) not in SHIFT_KEYMAP]
+          assert not unmapped, f'Unmapped printable ASCII: {unmapped}'
+          print('✅ All printable ASCII characters (32-126) are mappable')
+          "
