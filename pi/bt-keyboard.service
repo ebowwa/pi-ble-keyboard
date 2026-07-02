@@ -1,0 +1,12 @@
+[Unit]
+Description=BLE HID Keyboard (LE-only)
+After=bluetooth.service
+Requires=bluetooth.service
+
+[Service]
+Type=oneshot
+ExecStart=/home/pi/start_bt_keyboard.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
