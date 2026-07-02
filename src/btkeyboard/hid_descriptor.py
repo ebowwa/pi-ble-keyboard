@@ -18,6 +18,7 @@ References:
   - https://docs.silabs.com/bluetooth/4.2/hid-over-gatt
 """
 
+from __future__ import annotations
 # Standard HID Keyboard Report Map (no Report ID — Boot Protocol)
 HID_REPORT_MAP = [
     0x05, 0x01,        # Usage Page (Generic Desktop Ctrls)

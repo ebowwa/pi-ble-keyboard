@@ -8,6 +8,7 @@ Uses custom D-Bus paths under ``/pihid/`` to avoid conflicts with BlueZ's
 own ObjectManager at ``/``. This was one of the 5 critical fixes.
 """
 
+from __future__ import annotations
 import dbus
 import dbus.service
 

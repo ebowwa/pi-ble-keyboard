@@ -6,6 +6,7 @@ auto-confirms passkeys and auto-authorizes service connections so the
 keyboard works without manual intervention.
 """
 
+from __future__ import annotations
 import dbus
 import dbus.service
 

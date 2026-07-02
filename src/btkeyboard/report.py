@@ -12,6 +12,7 @@ A key press is: [mod, 0x00, keycode, 0x00, 0x00, 0x00, 0x00, 0x00]
 A key release is: [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
 """
 
+from __future__ import annotations
 from dataclasses import dataclass, field
 from .keymap import MOD_LSHIFT, MOD_LCTRL, MOD_LALT, MOD_LGUI
 

@@ -5,6 +5,7 @@ Registers an org.bluez.LEAdvertisement1 object so iOS can find and pair
 with the device. Appearance 0x03C1 (961) = HID Keyboard.
 """
 
+from __future__ import annotations
 import dbus
 import dbus.service
 

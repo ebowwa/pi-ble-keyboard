@@ -13,3 +13,4 @@ venv/
 .tox/
 .mypy_cache/
 .ruff_cache/
+.github/workflows/ci.yml

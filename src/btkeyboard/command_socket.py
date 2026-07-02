@@ -9,6 +9,7 @@ Usage:
     echo "hello" | ssh pi@pi-ip 'socat - UNIX-CONNECT:/tmp/bt_keyboard.sock'
 """
 
+from __future__ import annotations
 import socket
 import os
 import threading

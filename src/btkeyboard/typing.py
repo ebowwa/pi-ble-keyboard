@@ -6,6 +6,7 @@ Abstracts the key press / release timing so the GATT layer just calls
 keymaps or modifiers.
 """
 
+from __future__ import annotations
 import time
 from .report import BootProtocolReport
 from .keymap import char_to_hid

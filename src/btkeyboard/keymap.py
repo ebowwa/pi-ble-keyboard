@@ -9,6 +9,7 @@ References:
   - HID spec, Appendix B.1 (Boot Protocol)
 """
 
+from __future__ import annotations
 # Lowercase letters, digits, and common punctuation → HID usage code
 KEYMAP = {
     # a-z

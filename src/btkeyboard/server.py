@@ -12,6 +12,7 @@ Entry point that:
 This is the direct modular equivalent of bt_keyboard_v5.py main().
 """
 
+from __future__ import annotations
 import os
 import dbus
 import dbus.mainloop.glib
