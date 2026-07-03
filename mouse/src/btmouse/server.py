@@ -52,7 +52,7 @@ def main():
     agent_mgr = dbus.Interface(bus.get_object(BLUEZ, "/org/bluez"), AGENT_MGR_IFACE)
     agent_mgr.RegisterAgent(
         AGENT_PATH,
-        "KeyboardDisplay",
+        "Mouse",
         reply_handler=lambda: print("[+] Agent registered", flush=True),
         error_handler=lambda e: print("[!] Agent error: " + str(e), flush=True),
     )
