@@ -1,0 +1,12 @@
+[Unit]
+Description=Force Bluetooth LE-only mode
+Before=pi-keyboard.service
+After=bluetooth.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/bt-le-only.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
