@@ -6,7 +6,7 @@ Requires=bluetooth.target
 [Service]
 Type=simple
 User=pi
-WorkingDirectory=/home/pi/pi-ble-keyboard
+WorkingDirectory=/home/pi/pi-ble-keyboard/keyboard
 ExecStart=/usr/bin/python3 -m src.btkeyboard.server
 Restart=always
 RestartSec=3
