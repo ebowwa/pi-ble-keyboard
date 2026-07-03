@@ -8,7 +8,7 @@ import dbus.service
 
 AGENT_IFACE = "org.bluez.Agent1"
 AGENT_MGR_IFACE = "org.bluez.AgentManager1"
-AGENT_PATH = "/org/bluez/piagent"
+AGENT_PATH = "/org/bluez/pimouseagent"
 
 
 class PairingAgent(dbus.service.Object):
