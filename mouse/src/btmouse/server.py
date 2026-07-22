@@ -1,10 +1,7 @@
 """
 BLE HID Mouse server — wires all modules together.
 
-Runs alongside (or instead of) the keyboard service. Uses a separate
-D-Bus path prefix (/pimouse) to avoid conflicts.
-
-Command socket at /tmp/bt_mouse.sock accepts JSON mouse commands.
+Uses the EXACT same structure as keyboard that works.
 """
 
 from __future__ import annotations
@@ -12,7 +9,7 @@ import dbus
 import dbus.mainloop.glib
 from gi.repository import GLib
 
-from .gatt import Application, HIDMouseService, get_report_char
+from .gatt import Application, HIDMouseService, DeviceInformationService, get_report_char
 from .advertisement import Advertisement, ADAPTER_PATH, DEVICE_NAME
 from .agent import PairingAgent, AGENT_PATH, AGENT_MGR_IFACE
 from .command_socket import MouseCommandSocket, SOCKET_PATH
@@ -28,7 +25,7 @@ def handle_reports(reports: list[dict]):
     import time
     char = get_report_char()
     if not char:
-        print("[!] No client subscribed — iOS not connected", flush=True)
+        print("[!] No client subscribed — host not connected", flush=True)
         return 0
     for r in reports:
         byte_report = [
@@ -65,13 +62,21 @@ def main():
     # ── 2. GATT service ──
     app = Application(bus)
     app.add_service(HIDMouseService(bus, 0))
+    app.add_service(DeviceInformationService(bus, 1))
 
     gatt_mgr = dbus.Interface(bus.get_object(BLUEZ, ADAPTER_PATH), GATT_MANAGER_IFACE)
+
+    def gatt_ok():
+        print("[+] GATT registered", flush=True)
+
+    def gatt_err(e):
+        print("[!] GATT FAILED: " + str(e), flush=True)
+
     gatt_mgr.RegisterApplication(
         app.get_path(),
         {},
-        reply_handler=lambda: print("[+] Mouse GATT registered", flush=True),
-        error_handler=lambda e: print("[!] GATT FAILED: " + str(e), flush=True),
+        reply_handler=gatt_ok,
+        error_handler=gatt_err,
     )
 
     # ── 3. BLE advertisement ──
@@ -80,7 +85,7 @@ def main():
     ad_mgr.RegisterAdvertisement(
         ad.get_path(),
         {},
-        reply_handler=lambda: print("[+] Mouse advertisement registered", flush=True),
+        reply_handler=lambda: print("[+] Advertisement registered", flush=True),
         error_handler=lambda e: print("[!] Ad error: " + str(e), flush=True),
     )
 
@@ -92,16 +97,16 @@ def main():
     props.Set("org.bluez.Adapter1", "Pairable", dbus.Boolean(True))
 
     # ── 5. Command socket ──
-    cmd = MouseCommandSocket(on_command_callback=handle_reports, socket_path=SOCKET_PATH)
-    cmd.start()
+    MouseCommandSocket(handle_reports, SOCKET_PATH)
 
-    # ── 6. Run forever ──
-    print("[*] BLE HID Mouse (Boot Protocol) running", flush=True)
+    # ── 6. Run ──
+    print(f"[*] BLE HID Mouse (Boot Protocol) running", flush=True)
     print(f"[*] Pair as '{DEVICE_NAME}'", flush=True)
     print(f"[*] Commands: echo '{{\"cmd\":\"move\",\"dx\":10,\"dy\":0}}' | socat - UNIX-CONNECT:{SOCKET_PATH}", flush=True)
-
-    loop = GLib.MainLoop()
-    loop.run()
+    try:
+        GLib.MainLoop().run()
+    except KeyboardInterrupt:
+        print("\n[*] Shutting down", flush=True)
 
 
 if __name__ == "__main__":

@@ -16,7 +16,10 @@ ADAPTER_PATH = "/org/bluez/hci0"
 
 APPEARANCE_HID_MOUSE = 962
 
-DEVICE_NAME = "Pi Mouse"
+DEVICE_NAME = "PiMouse v2"  # Changed to force macOS cache invalidate
+
+# Include both HID and Device Information Service UUIDs in advertisement
+DIS_SVC = "0000180a-0000-1000-8000-00805f9b34fb"
 
 
 class Advertisement(dbus.service.Object):
@@ -32,7 +35,7 @@ class Advertisement(dbus.service.Object):
         if interface == LE_ADVERT_IFACE:
             return {
                 "Type": "peripheral",
-                "ServiceUUIDs": dbus.Array([HID_SVC], signature="s"),
+                "ServiceUUIDs": dbus.Array([HID_SVC, DIS_SVC], signature="s"),
                 "LocalName": DEVICE_NAME,
                 "Appearance": dbus.UInt16(APPEARANCE_HID_MOUSE),
                 "Discoverable": dbus.Boolean(True),

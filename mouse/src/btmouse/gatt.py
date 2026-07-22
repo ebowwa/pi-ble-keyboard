@@ -23,10 +23,10 @@ from .hid_descriptor import (
 )
 
 DBUS_OM_IFACE = "org.freedesktop.DBus.ObjectManager"
-DBUS_PROP_IFACE = "org.freedesktop.DBus.Properties"
 GATT_SERVICE_IFACE = "org.bluez.GattService1"
 GATT_CHRC_IFACE = "org.bluez.GattCharacteristic1"
 GATT_DESC_IFACE = "org.bluez.GattDescriptor1"
+DBUS_PROP_IFACE = "org.freedesktop.DBus.Properties"
 
 _report_char = None
 
@@ -36,8 +36,10 @@ def get_report_char():
 
 
 class Application(dbus.service.Object):
+    """Root D-Bus object that exposes all GATT services to BlueZ."""
+
     def __init__(self, bus):
-        self.path = "/"
+        self.path = "/pimouse"
         self.services = []
         dbus.service.Object.__init__(self, bus, self.path)
 
@@ -49,17 +51,23 @@ class Application(dbus.service.Object):
 
     @dbus.service.method(DBUS_OM_IFACE, out_signature="a{oa{sa{sv}}}")
     def GetManagedObjects(self):
+        print(f"[D-BUS] GetManagedObjects called! Services: {len(self.services)}", flush=True)
         response = {}
         for service in self.services:
+            print(f"[D-BUS]   Service: {service.get_path()}", flush=True)
             response[service.get_path()] = service.get_properties()
             for chrc in service.get_characteristics():
+                print(f"[D-BUS]     Char: {chrc.get_path()}", flush=True)
                 response[chrc.get_path()] = chrc.get_properties()
                 for desc in chrc.get_descriptors():
+                    print(f"[D-BUS]       Desc: {desc.get_path()}", flush=True)
                     response[desc.get_path()] = desc.get_properties()
         return response
 
 
 class Service(dbus.service.Object):
+    """Base GATT service. Uses /pimouse/ prefix to avoid BlueZ path conflicts."""
+
     PATH_PREFIX = "/pimouse"
 
     def __init__(self, bus, index, uuid, primary=True):
@@ -83,6 +91,8 @@ class Service(dbus.service.Object):
 
 
 class Characteristic(dbus.service.Object):
+    """Base GATT characteristic with Read/Write/Notify support."""
+
     def __init__(self, bus, index, uuid, flags, service):
         self.path = service.path + "/char" + str(index)
         self.uuid = uuid
@@ -111,49 +121,50 @@ class Characteristic(dbus.service.Object):
             }
         }
 
+    def send_notification(self, data: list[int]):
+        """Send notification to subscribed clients."""
+        self.PropertiesChanged(
+            GATT_CHRC_IFACE,
+            {"Value": dbus.Array(data, signature="y")},
+            [],
+        )
+
     @dbus.service.method(DBUS_PROP_IFACE, in_signature="s", out_signature="a{sv}")
     def GetAll(self, interface):
-        props = self.get_properties()
-        if interface in props:
-            return props[interface]
-        return {}
-
-    @dbus.service.method(GATT_CHRC_IFACE, in_signature="a{sv}", out_signature="ay")
-    def ReadValue(self, options):
-        return dbus.Array(self.value, signature="y")
-
-    @dbus.service.method(GATT_CHRC_IFACE, in_signature="aya{sv}")
-    def WriteValue(self, value, options):
-        self.value = list(value)
-
-    @dbus.service.method(GATT_CHRC_IFACE)
-    def StartNotify(self):
-        self.notifying = True
-
-    @dbus.service.method(GATT_CHRC_IFACE)
-    def StopNotify(self):
-        self.notifying = False
+        return self.get_properties()[interface]
 
     @dbus.service.signal(DBUS_PROP_IFACE, signature="sa{sv}as")
     def PropertiesChanged(self, interface, changed, invalidated):
         pass
 
-    def send_notification(self, value):
+    @dbus.service.method(GATT_CHRC_IFACE, in_signature="", out_signature="ay")
+    def ReadValue(self):
+        return dbus.Array(self.value, signature="y")
+
+    @dbus.service.method(GATT_CHRC_IFACE, in_signature="ay")
+    def WriteValue(self, value):
         self.value = list(value)
-        self.PropertiesChanged(
-            GATT_CHRC_IFACE,
-            {"Value": dbus.Array(self.value, signature="y")},
-            [],
-        )
+
+    @dbus.service.method(GATT_CHRC_IFACE)
+    def StartNotify(self):
+        self.notifying = True
+        print(f"[+] Notifications enabled on {self.uuid}", flush=True)
+
+    @dbus.service.method(GATT_CHRC_IFACE)
+    def StopNotify(self):
+        self.notifying = False
+        print(f"[-] Notifications disabled on {self.uuid}", flush=True)
 
 
 class Descriptor(dbus.service.Object):
+    """Base GATT descriptor."""
+
     def __init__(self, bus, index, uuid, flags, characteristic):
         self.path = characteristic.path + "/desc" + str(index)
         self.uuid = uuid
         self.flags = flags
         self.characteristic = characteristic
-        self.value = [0]
+        self.value = []
         dbus.service.Object.__init__(self, bus, self.path)
 
     def get_path(self):
@@ -170,30 +181,27 @@ class Descriptor(dbus.service.Object):
 
     @dbus.service.method(DBUS_PROP_IFACE, in_signature="s", out_signature="a{sv}")
     def GetAll(self, interface):
-        props = self.get_properties()
-        if interface in props:
-            return props[interface]
-        return {}
+        return self.get_properties()[interface]
 
-    @dbus.service.method(GATT_DESC_IFACE, in_signature="a{sv}", out_signature="ay")
-    def ReadValue(self, options):
+    @dbus.service.method(GATT_DESC_IFACE, in_signature="", out_signature="ay")
+    def ReadValue(self):
         return dbus.Array(self.value, signature="y")
 
-    @dbus.service.method(GATT_DESC_IFACE, in_signature="aya{sv}")
-    def WriteValue(self, value, options):
-        self.value = list(value)
 
-
-# ── HID Mouse characteristics ──
+# ── HID Service (0x1812) ──────────────────────────────────────────────────
 
 
 class HIDInfoChar(Characteristic):
+    """HID Information — bcdHID=1.1, bCountryCode=0, flags=remote wake (0x02)."""
+
     def __init__(self, bus, index, service):
         super().__init__(bus, index, HID_INFO_UUID, ["read"], service)
         self.value = HID_INFORMATION
 
 
 class HIDReportMapChar(Characteristic):
+    """HID Report Descriptor — tells host this is a Boot Protocol mouse."""
+
     def __init__(self, bus, index, service):
         super().__init__(bus, index, HID_REPORT_MAP_UUID, ["read"], service)
         self.value = MOUSE_REPORT_MAP
@@ -233,6 +241,32 @@ class ReportReferenceDesc(Descriptor):
     def __init__(self, bus, index, characteristic):
         super().__init__(bus, index, REPORT_REF_UUID, ["read"], characteristic)
         self.value = REPORT_REF_BOOT_MOUSE
+
+
+# ── Device Information Service (0x180A) ──────────────────────────────────
+# macOS bluetoothd requires DIS with PnP ID to create the HID shim.
+
+
+PNP_ID_UUID = "00002A50-0000-1000-8000-00805f9b34fb"
+
+
+class PnPIdChar(Characteristic):
+    def __init__(self, bus, index, service):
+        # Vendor ID=0x05ac (Apple), Product ID=0x0256 (generic), Source=USB
+        super().__init__(bus, index, PNP_ID_UUID, ["read"], service)
+        self.value = [0x02, 0x05, 0xac, 0x56, 0x02, 0x00, 0x00]
+
+
+class DeviceInformationService(Service):
+    """Device Information Service with PnP ID — required for macOS HID shim."""
+
+    def __init__(self, bus, index):
+        # DIS UUID 0x180A
+        super().__init__(bus, index, "0000180a-0000-1000-8000-00805f9b34fb", True)
+        self.add_characteristic(PnPIdChar(bus, 0, self))
+
+
+# ── HID Mouse Service ──────────────────────────────────────────────────────
 
 
 class HIDMouseService(Service):
